@@ -1,1 +1,27 @@
-My Page
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test</title>
+    <meta charset="utf-8" />
+    <script src="http://maps.googleapis.com/maps/api/js?v=3.exp&libraries=places&sensor=true"></script>
+    <script src="chooselocation.js"></script>
+    <link rel="stylesheet" href="chooselocation.css" type="text/css">
+</head>
+<body>
+  <div id="map-canvas" style="width: 300px; height: 300px;">
+  </div>
+
+  <div id="formatted_address"></div>
+  <script type="text/javascript">
+    cl = new ChooseLocation(document.getElementById("map-canvas"), {
+      onchoose: function (result) {
+        document.getElementById("formatted_address").innerHTML = "Picked: " + result.address.formatted_address;
+      },
+      oncancel: function (result) {
+        document.getElementById("formatted_address").innerHTML = "Cancelled";
+      }
+    });
+  </script>
+</body>
+</html>
+
