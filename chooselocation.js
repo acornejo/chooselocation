@@ -90,6 +90,7 @@
        else
         map.panTo(place.geometry.location);
       marker.setPosition(place.geometry.location);
+      marker.setVisible(true);
       buttons.$choose.disabled = false;
       searchBox.$input.value = place.formatted_address;
       map.callback(result, 'update');
@@ -135,9 +136,11 @@
     if (formatted_address) {
       mapWidget.searchBox.$input.value = formatted_address;
       mapWidget.buttons.$choose.disabled = false;
+      mapWidget.marker.setVisible(true);
     } else {
       mapWidget.searchBox.$input.value = '';
       mapWidget.buttons.$choose.disabled = true;
+      mapWidget.marker.setVisible(false);
     }
 
     return mapWidget;
