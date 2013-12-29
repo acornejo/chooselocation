@@ -182,6 +182,9 @@
     if (!place.geometry)
       return;
 
+    var street_number = extract(place, 'street_number');
+    if (street_number) street_number = street_number + ' ';
+
     result.latlng = {lat: place.geometry.location.lat(), lng: place.geometry.location.lng()};
     result.address = {};
     result.address.formatted_address = place.formatted_address;
@@ -189,7 +192,7 @@
     result.address.state = extract(place, 'administrative_area_level_1', 'short_name');
     result.address.country = extract(place, 'country', 'short_name');
     result.address.zipcode = extract(place, 'postal_code');
-    result.address.street_address = extract(place, 'street_address') || extract(place, 'street_number') + extract(place, 'route');
+    result.address.street_address = extract(place, 'street_address') || street_number + extract(place, 'route');
 
     function extract(place, type, name) {
       if (!name) name = 'long_name';
