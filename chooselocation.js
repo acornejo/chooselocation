@@ -1,4 +1,7 @@
 (function() {  
+  var geocoder = new google.maps.Geocoder();
+  var mapWidget = null;
+
   function createSearchWidget() {
     var container, input, button, button_icon;
     
@@ -45,9 +48,10 @@
     return container;
   }
 
-  function createMapWidget(element, lat, lng, formatted_address, callback) {
+  function createMapWidget(lat, lng) {
+    var div = document.createElement("div");
     var latlng = new google.maps.LatLng(lat, lng);
-    var map = new google.maps.Map(element, {zoom: 13, center: latlng, mapTypeId: google.maps.MapTypeId.ROADMAP, mapTypeControl: false});
+    var map = new google.maps.Map(div, {zoom: 13, center: latlng, mapTypeId: google.maps.MapTypeId.ROADMAP, mapTypeControl: false});
     var marker = new google.maps.Marker({position: latlng, map: map, draggable: true});
 
     var searchBox = createSearchWidget();
@@ -58,16 +62,8 @@
     map.controls[google.maps.ControlPosition.TOP_LEFT].push(searchBox);
     map.searchBox = searchBox;
     map.buttons = buttons;
+    map.marker = marker;
     autocomplete.bindTo('bounds', map);
-
-    map.callback = callback;
-    if (formatted_address) {
-      map.searchBox.$input.value = formatted_address;
-      map.buttons.$choose.disabled = false;
-    } else {
-      map.searchBox.$input.value = '';
-      map.buttons.$choose.disabled = true;
-    }
 
     searchBox.onsubmit = function (e) {
       e.preventDefault();
@@ -122,17 +118,48 @@
       google.maps.event.trigger(map, 'resize');
       map.panTo(marker.getPosition());
     }, 500);
+
+    return map;
   }
 
-  var geocoder = new google.maps.Geocoder();
+  function getMapWidget(lat, lng, formatted_address, callback) {
+    if (!mapWidget)
+      mapWidget = createMapWidget(lat, lng);
+    else {
+      var latlng = new google.maps.LatLng(lat, lng);
+      mapWidget.marker.setPosition(latlng);
+      mapWidget.panTo(latlng);
+    }
+
+    mapWidget.callback = callback;
+    if (formatted_address) {
+      mapWidget.searchBox.$input.value = formatted_address;
+      mapWidget.buttons.$choose.disabled = false;
+    } else {
+      mapWidget.searchBox.$input.value = '';
+      mapWidget.buttons.$choose.disabled = true;
+    }
+
+    return mapWidget;
+  }
 
   function ChooseLocation(element, options) {
     if (!(this instanceof ChooseLocation))
       return new ChooseLocation(element, options);
 
+    var self = this;
+
     this.result = null;
     this.setOptions(options);
-    this.showMap(element);
+    this.getStartPosition(function (result) {
+      if (result) {
+        self.result = result;
+        if (self.options.onupdate)
+          self.options.onupdate(self.result);
+        self.showMap(element, result.latlng.lat, result.latlng.lng, result.address.formatted_address);
+      } else
+        self.showMap(element, self.options.defaultLat, self.options.defaultLng);
+    });
   }
 
   ChooseLocation.geocode = function (address, fn) {
@@ -190,13 +217,15 @@
     autoLocate: true,
     defaultLat: 42.3584308, 
     defaultLng: -71.0597732,
+    width: 'inherit',
+    height: 'inherit',
     onupdate: null,
     oncancel: null,
     onchoose: null
   };
 
   ChooseLocation.prototype = {
-    showMap: function (element) {
+    showMap: function (element, lat, lng, address) {
       var self = this;
 
       function callback(result, action) {
@@ -213,26 +242,33 @@
         }
       }
 
-      if (self.options.lat && self.options.lng || self.options.address || !self.options.autoLocate || !navigator.geolocation) {
-        if (self.options.address) {
-          ChooseLocation.geocode(self.options.address, function (result, place) {
-            callback(result, 'update');
-            createMapWidget(element, result.latlng.lat, result.latlng.lng, result.address.formatted_address, callback);
+      var mapDiv = getMapWidget(lat, lng, address, callback).getDiv();
+      mapDiv.style.width = this.options.width;
+      mapDiv.style.height = this.options.height;
+
+      while (element.firstChild)
+        element.removeChild(element.firstChild);
+      element.appendChild(mapDiv);
+    },
+
+    getStartPosition: function(callback) {
+      if (this.options.lat && this.options.lng || this.options.address || !this.options.autoLocate || !navigator.geolocation) {
+        if (this.options.address) {
+          ChooseLocation.geocode(this.options.address, function (result) {
+            callback(result);
           });
         } else {
-          ChooseLocation.reverseGeocode(self.options.lat || self.options.defaultLat, self.options.lng || self.options.defaultLng, function (result, place) {
-            callback(result, 'update');
-            createMapWidget(element, result.latlng.lat, result.latlng.lng, result.address.formatted_address, callback);
+          ChooseLocation.reverseGeocode(this.options.lat || this.options.defaultLat, this.options.lng || this.options.defaultLng, function (result) {
+            callback(result);
           });
         }
       } else {
         navigator.geolocation.getCurrentPosition(function (pos) {
-          ChooseLocation.reverseGeocode(pos.coords.latitude, pos.coords.longitude, function (result, place) {
-            callback(result, 'update');
-            createMapWidget(element, result.latlng.lat, result.latlng.lng, result.address.formatted_address, callback);
+          ChooseLocation.reverseGeocode(pos.coords.latitude, pos.coords.longitude, function (result) {
+            callback(result);
           });
         }, function () {
-          createMapWidget(element, self.options.defaultLat, self.options.defaultLng, null, callback);
+          callback(null);
         });
       }
     },
